@@ -8,7 +8,7 @@
 
 using namespace std;
 
-void render(unsigned int program, unsigned int VAO);
+void render(GLFWwindow* window, unsigned int program, unsigned int VAO);
 pair<unsigned int, unsigned int> initScreen();
 
 unsigned int createShaderProgram();
@@ -16,6 +16,8 @@ unsigned int createShaderProgram();
 pair<int, int> compileShaders(const char* vertexPath, const char* fragmentPath);
 
 int compileShader(GLenum shaderType, const char* path);
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
 int main(void) {
     // Initialize GLFW
@@ -33,10 +35,16 @@ int main(void) {
     // Make the window's context current
     glfwMakeContextCurrent(window);
 
+    // Register resize callback
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
     // Initialize GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         return -1;
     }
+
+    // Set initial viewport
+    glViewport(0, 0, 800, 600);
 
     // Set up vertex data and buffers
     pair<unsigned int, unsigned int> VAOAndVBO = initScreen();
@@ -49,7 +57,7 @@ int main(void) {
     // Main loop
     while (!glfwWindowShouldClose(window)) {
         // Render here
-        render(program, VAO);
+        render(window, program, VAO);
 
         glfwSwapBuffers(window);
 
@@ -63,11 +71,24 @@ int main(void) {
     return 0;
 }
 
-void render(unsigned int program, unsigned int VAO) {
+void render(GLFWwindow* window, unsigned int program, unsigned int VAO) {
     // Clear the screen to blue 
     glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
+    // Get current size and pass to shader
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    glUniform2f(glGetUniformLocation(program, "resolution"), (float)width, (float)height);
+
+    // Change colors over time
+    float timeValue = (float)glfwGetTime();
+    float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
+    float redValue = (sin(timeValue*3) / 2.0f) + 0.5f;
+    float blueValue = (sin(timeValue*5) / 2.0f) + 0.5f;
+    glUniform4f(glGetUniformLocation(program, "color"), redValue, greenValue, blueValue, 1.0f);
+
+    // Draw the screen quad using the shader program
     glUseProgram(program);
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -173,4 +194,8 @@ int compileShader(GLenum shaderType, const char* path) {
         fprintf(stderr, "Error loading shader: %s\n", e.what());
         return -1;
     }
+}
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
 }
