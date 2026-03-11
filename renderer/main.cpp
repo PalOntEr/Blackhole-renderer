@@ -9,9 +9,11 @@
 using namespace std;
 
 void render(unsigned int program, unsigned int VAO);
-int initScreen();
+pair<unsigned int, unsigned int> initScreen();
 
-int* compileShaders(const char* vertexPath, const char* fragmentPath);
+unsigned int createShaderProgram();
+
+pair<int, int> compileShaders(const char* vertexPath, const char* fragmentPath);
 
 int compileShader(GLenum shaderType, const char* path);
 
@@ -36,14 +38,13 @@ int main(void) {
         return -1;
     }
 
-    int VAO = initScreen();
+    // Set up vertex data and buffers
+    pair<unsigned int, unsigned int> VAOAndVBO = initScreen();
+    unsigned int VAO = VAOAndVBO.first;
+    unsigned int VBO = VAOAndVBO.second;
 
-    int* shaders = compileShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
-
-    unsigned int program = glCreateProgram();
-    glAttachShader(program, shaders[0]);
-    glAttachShader(program, shaders[1]);
-    glLinkProgram(program);
+    // Compile shaders and link program
+    unsigned int program = createShaderProgram();
 
     // Main loop
     while (!glfwWindowShouldClose(window)) {
@@ -55,8 +56,7 @@ int main(void) {
         glfwPollEvents();
     }
 
-    delete[] shaders;
-
+    
     // Clean up and exit
     glfwDestroyWindow(window);
     glfwTerminate();
@@ -73,7 +73,7 @@ void render(unsigned int program, unsigned int VAO) {
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
-int initScreen() {
+pair<unsigned int, unsigned int> initScreen() {
 
     float screenQuadVertices[] = {
         // positions   // texCoords
@@ -101,15 +101,41 @@ int initScreen() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    return VAO;
+    return make_pair(VAO, VBO);
 }
 
-int* compileShaders(const char* vertexPath, const char* fragmentPath) {
+unsigned int createShaderProgram() {
+
+    pair<int, int> shaderPair = compileShaders("shaders/vertex.glsl", "shaders/fragment.glsl");
+    int vertexShader = shaderPair.first;
+    int fragmentShader = shaderPair.second;
+
+    unsigned int program = glCreateProgram();
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragmentShader);
+    glLinkProgram(program);
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    int success;
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetProgramInfoLog(program, 512, NULL, infoLog);
+        fprintf(stderr, "Error linking shader program: %s\n", infoLog);
+        return -1;
+    }
+
+    return program;
+}
+
+pair<int, int> compileShaders(const char* vertexPath, const char* fragmentPath) {
     
     int vertexShader = compileShader(GL_VERTEX_SHADER, vertexPath);
     int fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentPath);
 
-    return new int[2]{ vertexShader, fragmentShader };
+    return make_pair(vertexShader, fragmentShader);
 
 }
 
